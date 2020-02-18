@@ -22,11 +22,13 @@ const (
 	SeeleVersion uint = 1
 
 	// SeeleVersion for simpler display
-
-	SeeleNodeVersion string = "v1.1.5"
+	SeeleNodeVersion string = "v1.2.5"
 
 	// ShardCount represents the total number of shards.
 	ShardCount = 4
+
+	// only one shard in subchain
+	ShardCountSubchain = 1
 
 	// MetricsRefreshTime is the time of metrics sleep 1 minute
 	MetricsRefreshTime = time.Minute
@@ -45,6 +47,8 @@ const (
 
 	// ForkHeight after this height we change the validation of tx: hardFork
 	ThirdForkHeight = 735000
+
+	SmartContractNonceForkHeight = 1100000
 
 	// LightChainDir lightchain data directory based on config.DataRoot
 	LightChainDir = "/db/lightchain"
@@ -68,7 +72,7 @@ const (
 	BFTDataFolder = "bftdata"
 
 	// BFT mineralgorithm
-	BFTSuchainEngine = "bft_subchain"
+	BFTSubchainEngine = "bft_subchain"
 
 	// BFT data folder
 	BFTSuchainDataFolder = "bft_suchain_data"

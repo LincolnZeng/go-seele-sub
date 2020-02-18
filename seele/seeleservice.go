@@ -24,7 +24,7 @@ import (
 	"github.com/seeleteam/go-seele/node"
 	"github.com/seeleteam/go-seele/p2p"
 	"github.com/seeleteam/go-seele/rpc"
-	"github.com/seeleteam/go-seele/seele/download"
+	downloader "github.com/seeleteam/go-seele/seele/download"
 )
 
 const chainHeaderChangeBuffSize = 100
@@ -84,6 +84,7 @@ func (s *SeeleService) Miner() *miner.Miner { return s.miner }
 func (s *SeeleService) Downloader() *downloader.Downloader {
 	return s.seeleProtocol.Downloader()
 }
+
 // P2PServer get p2pServer
 func (s *SeeleService) P2PServer() *p2p.Server { return s.p2pServer }
 
@@ -97,6 +98,12 @@ func NewSeeleService(ctx context.Context, conf *node.Config, log *log.SeeleLog, 
 	}
 
 	serviceContext := ctx.Value("ServiceContext").(ServiceContext)
+
+	// var serviceContext ServiceContext
+	// if conf.BasicConfig.Subchain {
+	// 	serviceContext = ctx.Value("SubchainServiceContext").(ServiceContext)
+	// }
+	fmt.Printf("start to initiate service with conf %+v", conf)
 
 	// Initialize blockchain DB.
 	if err = s.initBlockchainDB(&serviceContext); err != nil {
@@ -116,8 +123,6 @@ func NewSeeleService(ctx context.Context, conf *node.Config, log *log.SeeleLog, 
 	}
 
 	s.miner = miner.NewMiner(conf.SeeleConfig.Coinbase, s, s.debtVerifier, engine)
-
-	// initialize and validate genesis
 	if err = s.initGenesisAndChain(&serviceContext, conf, startHeight); err != nil {
 		return nil, err
 	}
@@ -175,6 +180,7 @@ func (s *SeeleService) initDebtManagerDB(serviceContext *ServiceContext) (err er
 
 func (s *SeeleService) initGenesisAndChain(serviceContext *ServiceContext, conf *node.Config, startHeight int) (err error) {
 	bcStore := store.NewCachedStore(store.NewBlockchainDatabase(s.chainDB))
+	fmt.Printf("starting to getGenesis with GenesisConfig %+v", conf.SeeleConfig.GenesisConfig)
 	genesis := core.GetGenesis(&conf.SeeleConfig.GenesisConfig)
 
 	if err = genesis.InitializeAndValidate(bcStore, s.accountStateDB); err != nil {

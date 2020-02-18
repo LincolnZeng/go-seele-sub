@@ -127,9 +127,9 @@ func (miner *Miner) Start() error {
 
 	miner.stopChan = make(chan struct{})
 
-	if istanbul, ok := miner.engine.(consensus.Istanbul); ok {
-		if err := istanbul.Start(miner.seele.BlockChain(), miner.seele.BlockChain().CurrentBlock, nil); err != nil {
-			panic(fmt.Sprintf("failed to start istanbul engine: %v", err))
+	if bft, ok := miner.engine.(consensus.Bft); ok {
+		if err := bft.Start(miner.seele.BlockChain(), miner.seele.BlockChain().CurrentBlock, nil); err != nil {
+			panic(fmt.Sprintf("failed to start bft engine: %v", err))
 		}
 	}
 
@@ -156,11 +156,11 @@ func (miner *Miner) Stop() {
 	atomic.StoreInt32(&miner.stopper, 1)
 	miner.stopMining()
 
-	if istanbul, ok := miner.engine.(consensus.Istanbul); ok {
-		if err := istanbul.Stop(); err != nil {
-			panic(fmt.Sprintf("failed to stop istanbul engine: %v", err))
-		}
-	}
+	// if bft, ok := miner.engine.(consensus.Bft); ok {
+	// 	if err := bft.Stop(); err != nil {
+	// 		panic(fmt.Sprintf("failed to stop bft engine: %v", err))
+	// 	}
+	// }
 }
 
 func (miner *Miner) stopMining() {
@@ -175,6 +175,12 @@ func (miner *Miner) stopMining() {
 
 	// wait for all threads to terminate
 	miner.wg.Wait()
+	if bft, ok := miner.engine.(consensus.Bft); ok {
+		miner.log.Info("\n\n\n miner engine is bft, will stop bft engine \n\n\n")
+		if err := bft.Stop(); err != nil {
+			panic(fmt.Sprintf("failed to stop bft engine: %v", err))
+		}
+	}
 	miner.log.Info("Miner is stopped.")
 }
 
@@ -232,9 +238,9 @@ out:
 					miner.log.Error("failed to save the block, for %s", ret.Error())
 					break
 				}
-
+				// this will be used for BFT
 				if h, ok := miner.engine.(consensus.Handler); ok {
-					h.NewChainHead()
+					h.HandleNewChainHead()
 				}
 
 				miner.log.Info("saved mined block successfully")
@@ -262,7 +268,7 @@ func newHeaderByParent(parent *types.Block, coinbase common.Address, timestamp i
 
 // prepareNewBlock prepares a new block to be mined
 func (miner *Miner) prepareNewBlock(recv chan *types.Block) error {
-	miner.log.Debug("starting mining the new block")
+	miner.log.Info("starting mining the new block")
 
 	timestamp := time.Now().Unix()
 	parent, stateDB, err := miner.seele.BlockChain().GetCurrentInfo()
@@ -281,6 +287,7 @@ func (miner *Miner) prepareNewBlock(recv chan *types.Block) error {
 		time.Sleep(wait)
 	}
 
+	miner.log.Info("newHeaderByParent with parent %v", parent)
 	header := newHeaderByParent(parent, miner.coinbase, timestamp)
 	miner.log.Debug("mining a block with coinbase %s", miner.coinbase.Hex())
 
@@ -290,7 +297,8 @@ func (miner *Miner) prepareNewBlock(recv chan *types.Block) error {
 	}
 
 	miner.current = NewTask(header, miner.coinbase, miner.debtVerifier)
-	err = miner.current.applyTransactionsAndDebts(miner.seele, stateDB, miner.log)
+	// here we add the verifierTx, challengeTx and exitTx
+	err = miner.current.applyTransactionsAndDebts(miner.seele, stateDB, miner.seele.BlockChain().AccountDB(), miner.log)
 	if err != nil {
 		return fmt.Errorf("failed to apply transaction %s", err)
 	}
@@ -306,8 +314,9 @@ func (miner *Miner) saveBlock(result *types.Block) error {
 	now := time.Now()
 	// entrance
 	memory.Print(miner.log, "miner saveBlock entrance", now, false)
+	txPool := miner.seele.TxPool().Pool
 
-	ret := miner.seele.BlockChain().WriteBlock(result)
+	ret := miner.seele.BlockChain().WriteBlock(result, txPool)
 
 	// entrance
 	memory.Print(miner.log, "miner saveBlock exit", now, true)

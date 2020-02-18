@@ -95,6 +95,7 @@ func (c *core) broadcast(msg *message) {
 	}
 }
 
+// finalizeMessage prepare the seal with proposal and sign data, return the payload with signature.
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	var err error
 	msg.Address = c.Address()
@@ -135,6 +136,7 @@ func PrepareCommittedSeal(hash common.Hash) []byte {
 	return buf.Bytes()
 }
 
+// currentView get current view of sequence and round
 func (c *core) currentView() *bft.View {
 	return &bft.View{
 		Sequence: new(big.Int).Set(c.current.Sequence()),
@@ -198,7 +200,7 @@ func (c *core) startNewRound(round *big.Int) {
 	//clear up
 	c.roundChangeSet = newRoundChangeSet(c.verSet) //
 	// update roundState
-	c.updateRoundState(newView, c.verSet, rounChanged) // TODO implement updateRoundState
+	c.updateRoundState(newView, c.verSet, rounChanged)
 	// calculate new proposer
 	c.verSet.CalcProposer(lastProposer, newView.Round.Uint64())
 	c.waitingForRoundChange = false
@@ -266,7 +268,7 @@ func (c *core) commit() {
 	if proposal != nil {
 		committedSeals := make([][]byte, c.current.Commits.Size())
 		for i, v := range c.current.Commits.Values() {
-			committedSeals[i] = make([]byte, types.IstanbulExtraSeal)
+			committedSeals[i] = make([]byte, types.BftExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
